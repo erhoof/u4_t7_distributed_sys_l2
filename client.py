@@ -14,7 +14,7 @@ session = FuturesSession(executor=ThreadPoolExecutor(max_workers=10))
 
 # Hardcode some values
 os.environ["LAB_SUBNET"] = "127.0.0.1/32"
-filename = "../steve.jpg"
+filename = "steve.jpg"
 
 # Hosts
 hosts = []
@@ -41,7 +41,7 @@ def encrypt():
     # Open and split file
     data_to_encrypt = []
     with open(filename, "rb") as f:
-        data_to_encrypt = urlsafe_b64encode(f.read())
+        data_to_encrypt = f.read()
 
     print(f"len of file: {len(data_to_encrypt)}")
 
@@ -54,7 +54,8 @@ def encrypt():
     futures = []
     for i in range(hosts_count):
         host = random.choice(hosts)
-        futures.append(session.put(f"http://{host}:5000/encrypt", json.dumps({'id': i, 'data': data_chunks[i].tolist()})))
+        chunk = str(urlsafe_b64encode(data_chunks[i]), "utf-8")
+        futures.append(session.put(f"http://{host}:5000/encrypt", json.dumps({'id': i, 'data': chunk})))
 
     # Receive data
     incoming_data_chunks = dict()
@@ -63,7 +64,8 @@ def encrypt():
         data = json.loads(response.content)
         id = data['id']
         print(f"response: {id} - {response.status_code}")
-        incoming_data_chunks[id] = data['data']
+        data_str = data['data']
+        incoming_data_chunks[id] = data_str
 
     # Complete file data
     with open('encrypted.json', 'w', encoding='utf-8') as f:
@@ -81,15 +83,17 @@ def decrypt():
 
     futures = []
     for id in data.keys():
+        data_str = data[id]
+        
         # Convert int bytearray -> base64
-        data_bin = bytearray(data[id])
-        print(f"data_bin len: {len(data_bin)}")
+        #data_bin = bytearray(data[id])
+        #print(f"data_bin len: {len(data_bin)}")
 
-        data_base64 = urlsafe_b64encode(data_bin)
-        print(f"data_base64 len: {len(data_base64)}")
+        #data_base64 = urlsafe_b64encode(data_bin)
+        #print(f"data_base64 len: {len(data_base64)}")
 
-        data_str = str(data_base64)
-        print(f"data_str len: {len(data_str)}")
+        #data_str = str(data_base64)
+        #print(f"data_str len: {len(data_str)}")
 
         host = random.choice(hosts)
         futures.append(session.put(f"http://{host}:5000/decrypt", json.dumps({'id': id, 'data': data_str})))
@@ -101,18 +105,26 @@ def decrypt():
         data = json.loads(response.content)
         id = data['id']
         print(f"response: {id} - {response.status_code}")
-        incoming_data_chunks[id] = data['data']
+        data_str = data['data']
+        data_bytes_safe = str.encode(data_str, "utf-8")
+        data_bytes = urlsafe_b64decode(data_bytes_safe)
+        incoming_data_chunks[id] = data_bytes
+
+    #incoming_data_chunks = incoming_data_chunks[::8]
 
     # Restore file
     file_array = []
     for id in range(len(incoming_data_chunks.keys())):
-        print(f"len idc: {len(incoming_data_chunks[str(id)])}")
+        #print(f"len idc: {len(incoming_data_chunks[str(id)])}")
         print(type(incoming_data_chunks[str(id)]))
-        file_array += incoming_data_chunks[str(id)]
+        #file_array.append(incoming_data_chunks[str(id)])
+        print(incoming_data_chunks[str(id)][0:128:8])
+        file_array += incoming_data_chunks[str(id)][::8]
+
+    print(file_array[0:16])
 
     # Convert file_array -> base 64 -> bytearray
-    file_base64 = urlsafe_b64decode(bytes(file_array))
-    file_array_bin = bytearray(file_base64)
+    file_array_bin = bytearray(file_array)
 
     # Write file
     with open("out.jpg", "wb") as f:
