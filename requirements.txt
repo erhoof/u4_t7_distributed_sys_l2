@@ -1,0 +1,5 @@
+flask
+requests-futures
+fernet
+numpy
+cryptography
