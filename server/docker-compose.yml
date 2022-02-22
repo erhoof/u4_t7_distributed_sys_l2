@@ -1,0 +1,28 @@
+version: "3.5"
+services:
+  server0:
+    environment:
+      - PYTHONUNBUFFERED=1
+    build: .
+    ports:
+      - "5000:5000"
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.2
+  server1:
+    environment:
+      - PYTHONUNBUFFERED=1
+    build: .
+    ports:
+      - "5001:5000"
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.3
+
+networks:
+  vpcbr:
+    driver: bridge
+    name: rest_network
+    ipam:
+     config:
+       - subnet: 10.5.0.0/16
